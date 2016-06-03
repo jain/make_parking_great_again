@@ -4,8 +4,12 @@ import android.graphics.Color;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.GridLayout;
 import android.widget.ImageView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,7 +24,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class ParkLayoutActivity extends AppCompatActivity {
+public class ParkLayoutActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
 
     // volley stuff
     private RequestQueue queue;
@@ -28,23 +32,35 @@ public class ParkLayoutActivity extends AppCompatActivity {
 
     // layout
     private GridLayout grid;
-    private int floor;
+    private int floor = 0;
     private int[][][] map3d;
+    private Spinner spinner;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.park_layout_main);
         grid = (GridLayout) findViewById(R.id.grid);
+        spinner = (Spinner) findViewById(R.id.floor);
     }
 
     @Override
     protected void onResume(){
         super.onResume();
         getParkingData();
-        floor = 1; // for now
+    }
+    private void resume(){
+        String[] spinnerArray = new String[map3d.length];
+        for (int i = 0; i<spinnerArray.length; i++){
+            spinnerArray[i] = "level " + i;
+        }
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, spinnerArray);
+        spinner.setAdapter(adapter);
+        spinner.setOnItemSelectedListener(this);
+        genGrid();
     }
 
     private void genGrid() {
+        grid.removeAllViews();
         grid.invalidate();
         int[][] arr = map3d[floor];
         grid.setRowCount(arr.length);
@@ -59,12 +75,15 @@ public class ParkLayoutActivity extends AppCompatActivity {
                 switch (arr[i][j]){
                     case 0: //free green
                         gridView.setBackgroundColor(Color.GREEN);
+                        gridView.setText("E");
                         break;
                     case 1: //  reserved (android this is yellow)
                         gridView.setBackgroundColor(Color.YELLOW);
+                        gridView.setText("R");
                         break;
                     case 2: // full
                         gridView.setBackgroundColor(Color.RED);
+                        gridView.setText("F");
                         break;
                     case 10: // right
                         gridView.setText("→");
@@ -121,7 +140,7 @@ public class ParkLayoutActivity extends AppCompatActivity {
                                     }
                                 }
                             }
-                            genGrid();
+                            resume();
                             Toast.makeText(ParkLayoutActivity.this, "success", Toast.LENGTH_LONG).show();
 
                         } catch (JSONException e) {
@@ -137,6 +156,15 @@ public class ParkLayoutActivity extends AppCompatActivity {
         });
 
         queue.add(stringRequest);
+    }
+    public void onItemSelected(AdapterView<?> parent, View v, int position, long id) {
+        floor = position;
+        genGrid();
+    }
+
+    @Override
+    public void onNothingSelected(AdapterView<?> adapterView) {
+        floor = 0;
     }
 
     @Override
