@@ -7,13 +7,16 @@ import com.google.android.gms.maps.model.LatLng;
  */
 public class ParkingLot {
 
+
+
     public enum STATUS{
         FULL, EMPTY, RELATIVELY_FULL, RELATIVELY_EMPTY
     }
     private STATUS status;
     private LatLng loc;
+    private String name;
 
-    public ParkingLot(String stat, double latitude, double longitude){
+    public ParkingLot(String stat, double latitude, double longitude, String name){
         switch (stat){
             case ("full"):
                 status = STATUS.FULL;
@@ -29,11 +32,15 @@ public class ParkingLot {
                 break;
         }
         loc = new LatLng(latitude, longitude);
+        this.name = name;
     }
     public STATUS getStatus(){
         return status;
     }
     public LatLng getLoc(){
         return loc;
+    }
+    public String getName() {
+        return name;
     }
 }

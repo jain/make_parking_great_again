@@ -1,6 +1,7 @@
 package vikram.com.parkenhance;
 
 import android.graphics.Color;
+import android.provider.Settings.Secure;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -16,6 +17,7 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
@@ -34,17 +36,22 @@ public class ParkLayoutActivity extends AppCompatActivity implements AdapterView
     private int floor = 0;
     private int[][][] map3d;
     private Spinner spinner;
+    private String android_id;
+    private TextView name;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.park_layout_main);
+        android_id = Secure.getString(this.getContentResolver(), Secure.ANDROID_ID);
         grid = (GridLayout) findViewById(R.id.grid);
         spinner = (Spinner) findViewById(R.id.floor);
+        name = (TextView) findViewById(R.id.plot_name);
     }
 
     @Override
     protected void onResume(){
         super.onResume();
+        name.setText(Common.parkingLot.getName());
         getParkingData();
     }
     private void resume(){
@@ -71,10 +78,14 @@ public class ParkLayoutActivity extends AppCompatActivity implements AdapterView
                 gridView.setTextSize(20);
                 gridView.setMinHeight(100);
                 gridView.setMinWidth(100);
+                gridView.setPadding(10, 10, 10, 10);
                 switch (arr[i][j]){
                     case 0: //free green
                         gridView.setBackgroundColor(Color.GREEN);
                         gridView.setText("E");
+                        gridView.setClickable(true);
+                        gridView.setOnClickListener(new ParkingSpaceClickListener(queue,
+                                new int[] {floor, i, j}, this, android_id));
                         break;
                     case 1: //  reserved (android this is yellow)
                         gridView.setBackgroundColor(Color.YELLOW);
@@ -112,21 +123,20 @@ public class ParkLayoutActivity extends AppCompatActivity implements AdapterView
                 grid.addView(gridView);
             }
         }
+
         grid.postInvalidate();
     }
 
     public void getParkingData() {
         queue = Volley.newRequestQueue(this);
-        String url = "https://parkenhance.firebaseio.com//.json?print=pretty";
+        String url = Common.BASEURL + Common.PARKING_LOT_INFO + "?name=" + Common.parkingLot.getName();
 
-        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
-                new Response.Listener<String>() {
+        JsonObjectRequest lotRequest = new JsonObjectRequest(Request.Method.GET, url, null,
+                new Response.Listener<JSONObject>() {
                     @Override
-                    public void onResponse(String response) {
+                    public void onResponse(JSONObject parkingLot) {
                         try {
-                            JSONObject js = new JSONObject(response);
-                            JSONObject lot1 = js.getJSONObject("lot1");
-                            JSONArray map = lot1.getJSONArray("map");
+                            JSONArray map = parkingLot.getJSONArray("map");
                             map3d = new int[map.length()][][];
                             for (int i=0;i<map.length();i++){
                                 JSONArray floor = map.getJSONArray(i);
@@ -150,11 +160,11 @@ public class ParkLayoutActivity extends AppCompatActivity implements AdapterView
                 }, new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
-                Toast.makeText(ParkLayoutActivity.this, error.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(ParkLayoutActivity.this, "Volley Request Error" + error.getMessage(), Toast.LENGTH_LONG).show();
             }
         });
 
-        queue.add(stringRequest);
+        queue.add(lotRequest);
     }
     public void onItemSelected(AdapterView<?> parent, View v, int position, long id) {
         floor = position;

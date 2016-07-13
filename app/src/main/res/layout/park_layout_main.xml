@@ -16,6 +16,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:id="@+id/plot_name"
+            android:textSize="20sp"
             android:text="Hello World!" />
         <Spinner
             android:id="@+id/floor"
@@ -39,14 +41,17 @@
     </ScrollView>
 
     <Button
+        android:text="Parking Spot Taken"
         android:layout_width="wrap_content"
         android:layout_weight="1"
         android:layout_height="0dp" />
     <Button
+        android:text="Contact Parking Lot Owner"
         android:layout_width="wrap_content"
         android:layout_weight="1"
         android:layout_height="0dp" />
     <Button
+        android:text="Help"
         android:layout_width="wrap_content"
         android:layout_weight="1"
         android:layout_height="0dp" />
