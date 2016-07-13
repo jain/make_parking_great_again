@@ -100,7 +100,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         client.get(Common.BASEURL + Common.CLIENT_TOKEN, new TextHttpResponseHandler() {
             @Override
             public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
-                Toast.makeText(MapsActivity.this, "failed to access payment info", Toast.LENGTH_LONG).show();
+                Toast.makeText(MapsActivity.this, "failed to access payment info", Toast.LENGTH_SHORT).show();
                 getClientToken();
             }
 
