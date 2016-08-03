@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <group android:checkableBehavior="single">
-        <item
-            android:id="@+id/navigation_item_1"
-            android:checked="true"
-            android:title="Payment Settings"/>
-    </group>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/navigation_item_1"
+        android:checked="true"
+        android:title="Payment Settings" />
+    <item
+        android:id="@+id/navigation_item_2"
+        android:checked="true"
+        android:title="Cancel All Reservations" />
+
+    <item
+        android:id="@+id/navigation_item_3"
+        android:checked="true"
+        app:actionViewClass="android.widget.CheckBox"
+        android:title="Auto Reserve" />
 </menu>

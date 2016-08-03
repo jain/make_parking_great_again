@@ -1,5 +1,8 @@
 package vikram.com.parkenhance;
 
+import android.location.Location;
+import android.location.LocationManager;
+
 import com.google.android.gms.maps.model.LatLng;
 
 /**
@@ -42,5 +45,11 @@ public class ParkingLot {
     }
     public String getName() {
         return name;
+    }
+    public Location getLocation(){
+        Location temp = new Location(LocationManager.GPS_PROVIDER);
+        temp.setLatitude(loc.latitude);
+        temp.setLongitude(loc.longitude);
+        return temp;
     }
 }

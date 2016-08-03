@@ -8,8 +8,13 @@ import android.location.LocationManager;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.view.GravityCompat;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.Menu;
 import android.view.View;
+import android.widget.CheckBox;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.location.LocationListener;
@@ -23,6 +28,7 @@ import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 import com.braintreepayments.api.BraintreePaymentActivity;
 import com.braintreepayments.api.PaymentRequest;
+import com.braintreepayments.api.models.PayPalRequest;
 import com.braintreepayments.api.models.PaymentMethodNonce;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -53,7 +59,7 @@ import com.loopj.android.http.TextHttpResponseHandler;
 import cz.msebera.android.httpclient.Header;
 
 
-public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener, GoogleMap.OnMarkerClickListener, NavigationView.OnNavigationItemSelectedListener{
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener, GoogleMap.OnMarkerClickListener, NavigationView.OnNavigationItemSelectedListener {
 
 
     // volley stuff
@@ -71,19 +77,30 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     private ActionBarDrawerToggle mDrawerToggle;
     private String mActivityTitle;
 
-    private AsyncHttpClient client = new AsyncHttpClient();
+    public AsyncHttpClient client = new AsyncHttpClient();
     private String clientToken = "";
+
+    private Marker destination;
+    private CheckBox checkBox;
+
+    private float dist = 1000;
+    private boolean zoom = true;
+    private ParkingLot myRes;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+
+        getClientToken();
+
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        mDrawerLayout = (DrawerLayout)findViewById(R.id.drawer_layout);
+        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
         NavigationView navigationView = (NavigationView) findViewById(R.id.navigation);
         navigationView.setNavigationItemSelectedListener(this);
 
@@ -93,7 +110,26 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setHomeButtonEnabled(true);
-        getClientToken();
+        NavigationView nav_view = (NavigationView) findViewById(R.id.navigation);
+        Menu menu = navigationView.getMenu();
+
+        MenuItem swich = menu.findItem(R.id.navigation_item_3);
+        checkBox = (CheckBox) swich.getActionView();
+        checkBox.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                // TODO Auto-generated method stub
+                if(checkBox.isChecked()){
+                    if (myRes!=null){
+                        checkBox.toggle();
+                        Toast.makeText(MapsActivity.this, "Please Cancel your current reservations first", Toast.LENGTH_SHORT).show();
+                    }
+                }else{
+                }
+            }
+        });
+
     }
 
     private void getClientToken() {
@@ -133,11 +169,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mDrawerToggle.setDrawerIndicatorEnabled(true);
         mDrawerLayout.setDrawerListener(mDrawerToggle);
     }
+
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         mDrawerToggle.onConfigurationChanged(newConfig);
     }
+
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
         super.onPostCreate(savedInstanceState);
@@ -155,20 +193,33 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
-        if (item.getTitle().toString().toLowerCase().contains("payment")){
-            if(clientToken.isEmpty()){
-                PaymentRequest paymentRequest = new PaymentRequest()
+        if (item.getTitle().toString().toLowerCase().contains("payment")) {
+            if (!clientToken.isEmpty()) {
+                PaymentRequest req = new PaymentRequest()
                         .clientToken(clientToken)
-                        .amount("$10.00")
-                        .primaryDescription("Awesome payment")
-                        .secondaryDescription("Using the Client SDK")
-                        .submitButtonText("Pay");
-
-                startActivityForResult(paymentRequest.getIntent(this), 1);
+                        .amount("$5.00")
+                        .primaryDescription("One Time Registration Payment")
+                        .currencyCode("USD")
+                        .disablePayPal()
+                        .submitButtonText("Purchase");
+                //PayPalRequest req = new PayPalRequest();
+                startActivityForResult(req.getIntent(this), 1);
             } else {
-                Toast.makeText(MapsActivity.this, "Payment Err" , Toast.LENGTH_LONG).show();
+                Toast.makeText(MapsActivity.this, "Payment Err", Toast.LENGTH_LONG).show();
             }
+        } else if (item.getTitle().toString().toLowerCase().contains("cancel")) {
+            client.get(Common.BASEURL + "cancel?id=" + Common.id, new TextHttpResponseHandler() {
+                @Override
+                public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
+                }
 
+                @Override
+                public void onSuccess(int statusCode, Header[] headers, String responseString) {
+                    Toast.makeText(MapsActivity.this, "Your Reservations have been cancelled!", Toast.LENGTH_LONG).show();
+                    myRes = null;
+                    getNearbyLots();
+                }
+            });
         }
         return false;
     }
@@ -176,60 +227,40 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == BraintreePaymentActivity.RESULT_OK) {
-            /*PaymentMethodNonce paymentMethodNonce = data.getParcelableExtra(BraintreePaymentActivity.EXTRA_PAYMENT_METHOD_NONCE);
+            PaymentMethodNonce paymentMethodNonce = data.getParcelableExtra(BraintreePaymentActivity.EXTRA_PAYMENT_METHOD_NONCE);
 
             RequestParams requestParams = new RequestParams();
             requestParams.put("payment_method_nonce", paymentMethodNonce.getNonce());
-            requestParams.put("amount", "10.00");
+            //requestParams.put("number", "5.00");
+            requestParams.put("amount", "5.00");
 
-            client.post(SERVER_BASE + "/payment", requestParams, new TextHttpResponseHandler() {
+            client.post(Common.BASEURL + "payment", requestParams, new TextHttpResponseHandler() {
                 @Override
                 public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
-                    Toast.makeText(SDKActivity.this, responseString, Toast.LENGTH_LONG).show();
+                    Toast.makeText(MapsActivity.this, responseString, Toast.LENGTH_LONG).show();
                 }
 
                 @Override
                 public void onSuccess(int statusCode, Header[] headers, String responseString) {
-                    Toast.makeText(SDKActivity.this, responseString, Toast.LENGTH_LONG).show();
+                    Toast.makeText(MapsActivity.this, responseString, Toast.LENGTH_LONG).show();
+                    Common.paid = true;
                 }
-            });*/
+            });
         }
     }
 
     @Override
-    protected void onResume(){
+    protected void onResume() {
         super.onResume();
         queue = Volley.newRequestQueue(this);
+        try {
+            getNearbyLots();
+        }catch(Exception e){
+
+        }
 
     }
     // testPost();
-    /*protected void testPost() {
-        String url = Common.BASEURL + "hi";
-        HashMap<String, ArrayList<String>> ohno = new HashMap<String, ArrayList<String>>();
-        ArrayList<String> l = new ArrayList<String>();
-        l.add("hi");
-        l.add("test");
-        ohno.put("testCase", l);
-        JSONObject js = new JSONObject(ohno);
-        JsonObjectRequest nearbyRequest = new JsonObjectRequest(Request.Method.POST, url, js,
-                new Response.Listener<JSONObject>() {
-                    @Override
-                    public void onResponse(JSONObject pLots) {
-                        Toast.makeText(MapsActivity.this, "swag", Toast.LENGTH_LONG).show();
-                        //JSONObject pLots = new JSONObject(resp);
-                        Iterator<String> it = pLots.keys();
-                        while (it.hasNext()) {
-                            String key = it.next();
-                        }
-                    }
-                }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-                Toast.makeText(MapsActivity.this, "Volley Request Error" + error.getMessage(), Toast.LENGTH_LONG).show();
-            }
-        });
-        queue.add(nearbyRequest);
-    }*/
 
     // http://arnab.ch/blog/2013/08/asynchronous-http-requests-in-android-using-volley/
     protected void getNearbyLots() {
@@ -251,8 +282,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                                         lot.getDouble("latitude"), lot.getDouble("longitude"), key);
                                 lots.add(pLot);
                             }
-
-                            addNearLots();
+                            getRes();
                         } catch (JSONException e) {
                             e.printStackTrace();
                             Toast.makeText(MapsActivity.this, "json error", Toast.LENGTH_LONG).show();
@@ -265,6 +295,38 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
         queue.add(nearbyRequest);
+
+    }
+
+    public void getRes() {
+        client.get(Common.BASEURL + "get_res", new TextHttpResponseHandler() {
+            @Override
+            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
+            }
+
+            @Override
+            public void onSuccess(int statusCode, Header[] headers, String responseString) {
+                //Toast.makeText(MapsActivity.this, "You have a reservation at " + lot, Toast.LENGTH_LONG).show();
+                myRes = null;
+                try {
+                    JSONObject json = new JSONObject(responseString);
+                    if (json.has(Common.id)) {
+                        String name = json.getJSONObject(Common.id).getString("lot");
+                        for (int i = 0; i < lots.size(); i++) {
+                            if (lots.get(i).getName().equals(name)) {
+                                myRes = lots.get(i);
+                            }
+                        }
+                    }
+
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+
+                addNearLots();
+
+            }
+        });
     }
 
     public void addNearLots() {
@@ -289,6 +351,12 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                             .defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
                     break;
             }
+            if (myRes != null) {
+                if (myRes.getName() == pLot.getName()) {
+                    pLotMarker.setIcon(BitmapDescriptorFactory
+                            .defaultMarker(BitmapDescriptorFactory.HUE_VIOLET));
+                }
+            }
             pLotMarker.setTitle(pLot.getName());
             markerListenerMap.put(pLotMarker.getTitle(), pLot);
         }
@@ -296,6 +364,26 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onLocationChanged(Location location) {
+        if (checkBox.isChecked()) {
+            Location temp = new Location(LocationManager.GPS_PROVIDER);
+            temp.setLatitude(destination.getPosition().latitude);
+            temp.setLongitude(destination.getPosition().longitude);
+            if (location.distanceTo(temp) < dist) {
+                // do something
+                //Toast.makeText(MapsActivity.this, "yoyo", Toast.LENGTH_LONG).show();
+                float min = 999999;
+                if (!lots.isEmpty()) {
+                    ParkingLot res = lots.get(0);
+                    for (ParkingLot lot : lots) {
+                        if (lot.getLocation().distanceTo(location) < min) {
+                            min = lot.getLocation().distanceTo(location);
+                            res = lot;
+                        }
+                    }
+                    reserveLot(res, Common.id);
+                }
+            }
+        }
         this.location = location;
         double latitude = location.getLatitude();
         double longitude = location.getLongitude();
@@ -304,13 +392,29 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             currLoc.remove();
         }
         mMap.clear();
-        currLoc = mMap.addMarker(new MarkerOptions().position(latLng));
-        currLoc.setTitle("My Location");
-        currLoc.setIcon(BitmapDescriptorFactory
-                .defaultMarker(BitmapDescriptorFactory.HUE_AZURE));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-        mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+        if (zoom) {
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
+        }
+        zoom = true;
         getNearbyLots();
+    }
+
+    private void reserveLot(ParkingLot res, String id) {
+        final String lot = res.getName();
+        client.get(Common.BASEURL + "res?id=" + id + "&res=" + lot, new TextHttpResponseHandler() {
+            @Override
+            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
+            }
+
+            @Override
+            public void onSuccess(int statusCode, Header[] headers, String responseString) {
+                Toast.makeText(MapsActivity.this, "You have a reservation at " + lot, Toast.LENGTH_LONG).show();
+                //getNearbyLots();
+                finish();
+                startActivity(getIntent());
+            }
+        });
     }
 
     @Override
@@ -341,7 +445,41 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        try {
+            mMap.setMyLocationEnabled(true);
+        } catch (SecurityException e) {
+            Toast.makeText(this, "rejected security permission", Toast.LENGTH_LONG).show();
+        }
         mMap.setOnMarkerClickListener(this);
+        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
+
+            @Override
+            public void onMapClick(LatLng latLng) {
+
+                // Creating a marker
+                MarkerOptions markerOptions = new MarkerOptions();
+
+                // Setting the position for the marker
+                markerOptions.position(latLng);
+
+                // Setting the title for the marker.
+                // This will be displayed on taping the marker
+                markerOptions.title(latLng.latitude + " : " + latLng.longitude);
+
+                markerOptions.icon(BitmapDescriptorFactory
+                        .defaultMarker(BitmapDescriptorFactory.HUE_CYAN));
+
+                if (destination != null) {
+                    destination.remove();
+                }
+                zoom = false;
+                destination = mMap.addMarker(markerOptions);
+                onLocationChanged(location);
+                destination = mMap.addMarker(markerOptions);
+
+
+            }
+        });
 
         LocationManager locationManager = (LocationManager) this.getSystemService(LOCATION_SERVICE);
         try {
@@ -374,18 +512,22 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public boolean onMarkerClick(Marker marker) {
-        if (markerListenerMap.containsKey(marker.getTitle())){
+        if (markerListenerMap.containsKey(marker.getTitle())) {
             ParkingLot pLot = markerListenerMap.get(marker.getTitle());
-            if (pLot.getStatus()== ParkingLot.STATUS.FULL){
+            if (pLot.getStatus() == ParkingLot.STATUS.FULL) {
                 Toast.makeText(this, "This parking lot is full", Toast.LENGTH_LONG).show();
             } else {
-                Common.parkingLot = pLot;
-                MarkerDialog dialog = new MarkerDialog(this, pLot);
-                dialog.show();
+                if (Common.paid) {
+                    Common.parkingLot = pLot;
+                    MarkerDialog dialog = new MarkerDialog(this, pLot);
+                    dialog.show();
+                } else {
+                    Toast.makeText(this, "Please fill out payment information", Toast.LENGTH_LONG).show();
+                }
             }
-        } else {
+        } /*else {
             Toast.makeText(this, "This is your location", Toast.LENGTH_LONG).show();
-        }
+        }*/
         return false; // to show options to navigate to place return false
     }
 }

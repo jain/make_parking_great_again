@@ -25,15 +25,16 @@ import java.util.HashMap;
 public class ParkingSpaceClickListener implements View.OnClickListener {
     private RequestQueue queue;
     private int[] position;
-    private Activity act;
+    private ParkLayoutActivity act;
     private String android_id;
-
-    public ParkingSpaceClickListener(RequestQueue queue, int[] pos, Activity act, String android_id) {
+    private int group;
+    public ParkingSpaceClickListener(RequestQueue queue, int[] pos, ParkLayoutActivity act, String android_id, int group) {
         super();
         this.queue = queue;
         position = pos;
         this.act = act;
         this.android_id = android_id;
+        this.group = group;
     }
 
     @Override
@@ -41,7 +42,8 @@ public class ParkingSpaceClickListener implements View.OnClickListener {
         final TextView txtView = (TextView) view;
         String url = Common.BASEURL + Common.RESERVE_SPOT;
         HashMap <String, String> spot = new HashMap<>();
-        spot.put("android_id", android_id);
+        spot.put("android_id", Common.id);
+        spot.put("group", ""+group);
         //spot.put("position", position);
         spot.put("name", Common.parkingLot.getName());
         JSONObject js = new JSONObject(spot);
@@ -58,13 +60,20 @@ public class ParkingSpaceClickListener implements View.OnClickListener {
                 new Response.Listener<JSONObject>() {
                     @Override
                     public void onResponse(JSONObject response) {
-                        txtView.setText("R");
-                        txtView.setBackgroundColor(Color.YELLOW);
+                        //txtView.setText("R");
+                        //txtView.setBackgroundColor(Color.YELLOW);
+                        try {
+                            Thread.sleep(500);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        act.getParkingData();
                     }
                 }, new Response.ErrorListener() {
             @Override
             public void onErrorResponse(VolleyError error) {
-                Toast.makeText(act, "Volley Request Error" + error.getMessage(), Toast.LENGTH_LONG).show();
+                //Toast.makeText(act, "Volley Request Error" + error.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(act, "Clear Your Existing Reservations", Toast.LENGTH_LONG).show();
             }
         });
         queue.add(nearbyRequest);

@@ -17,14 +17,6 @@
         android:layout_height="30dp"/>
 
     <Button
-        android:id="@+id/auto_reserve"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:paddingTop="10dp"
-        android:text="Auto Reserve Spot"
-        android:textSize="25sp" />
-    <Button
         android:id="@+id/see"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
